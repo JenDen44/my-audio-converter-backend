@@ -1,8 +1,6 @@
 package com.bulish.melnikov.converter.model;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 
@@ -14,6 +12,7 @@ import java.util.UUID;
 @Setter
 @RedisHash("ConvertRequest")
 @ToString
+@NoArgsConstructor
 public class ConvertRequest implements Serializable {
 
     @Id
