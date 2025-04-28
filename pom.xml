@@ -17,10 +17,13 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>io.github.stupidSoap</groupId>
-			<artifactId>jave</artifactId>
-			<version>1.0.2</version>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream</artifactId>
 		</dependency>
-	</dependencies>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream-binder-rabbit</artifactId>
+		</dependency>
+</dependencies>
 
 </project>
