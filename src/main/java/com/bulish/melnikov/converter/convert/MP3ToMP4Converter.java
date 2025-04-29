@@ -1,13 +1,18 @@
 package com.bulish.melnikov.converter.convert;
 
 import com.bulish.melnikov.converter.service.FileService;
-import it.sauronsoftware.jave.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
+import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Component
+@Slf4j
 public class MP3ToMP4Converter extends Mp3Converter {
 
     private final FileService fileService;
@@ -17,27 +22,57 @@ public class MP3ToMP4Converter extends Mp3Converter {
     }
 
     @Override
-    public byte[] convert(File file) {
+    public byte[] convert(byte[] file) {
+        File tempInputFile = null;
+        Path tempOutputFile = null;
+
         try {
-            String fileNameWithoutExtension = fileService.getFileNameWithoutExtension(file.getName());
-            String tempFileName = fileService.getNewPathForFile(fileNameWithoutExtension).toString();
-            File target = File.createTempFile(tempFileName, ".mp4");
-            target.deleteOnExit();
+            tempInputFile = File.createTempFile("input-" + UUID.randomUUID(), ".mp3");
+            tempOutputFile = Paths.get("temp/files/" + UUID.randomUUID() + ".mp4");
+            tempInputFile.deleteOnExit();
 
-            AudioAttributes audio = new AudioAttributes();
-            audio.setCodec("aac");
+            try (BufferedOutputStream buff = new BufferedOutputStream(Files.newOutputStream(tempInputFile.toPath()))) {
+                buff.write(file);
+                buff.flush();
+            }
 
-            EncodingAttributes attrs = new EncodingAttributes();
-            attrs.setFormat("mp4");
-            attrs.setAudioAttributes(audio);
+            String[] command = {
+                    "ffmpeg",
+                    "-i", tempInputFile.getAbsolutePath(),
+                    "-f", "mp4",
+                    tempOutputFile.toString()
+            };
 
-            Encoder encoder = new Encoder();
-            encoder.encode(file, target, attrs);
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(true);
+            log.info("Convert process has started with command: {}", String.join(" ", command));
 
-            return Files.readAllBytes(target.toPath());
+            log.info("convert process has started");
+            Process process = processBuilder.start();
+            boolean finished = process.waitFor(2, TimeUnit.MINUTES);
 
-        } catch (Exception e) {
-            throw new RuntimeException("Error while audio converting " + e.getMessage());
+            if (!finished) {
+                process.destroy();
+                log.error("FFmpeg process timed out");
+            } else {
+                log.info("FFmpeg process finished successfully");
+            }
+
+            try (BufferedInputStream buff = new BufferedInputStream(Files.newInputStream(tempOutputFile))) {
+                byte[] convertedVideo = buff.readAllBytes();
+
+                fileService.deleteFile(tempInputFile.getPath(), tempOutputFile.toString());
+                log.info("converted byte array size " + convertedVideo.length);
+
+                return convertedVideo;
+            }
+
+        } catch (IOException exception) {
+            log.debug("Error while create input/output files");
+        } catch (InterruptedException ex) {
+            log.debug("Error while process converting");
         }
+
+        return null;
     }
 }
